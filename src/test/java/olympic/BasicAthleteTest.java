@@ -88,7 +88,7 @@ public class BasicAthleteTest extends AbstractTest{
     }
 
     @Test
-    public void simpleTestgetProfile()
+    public void simpleTestGetProfile()
     {
         Athlete a = new Athlete();
         a.setId(1);

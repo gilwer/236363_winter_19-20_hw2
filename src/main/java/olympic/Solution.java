@@ -169,7 +169,7 @@ public class Solution {
             result=pstmt.executeUpdate();
         } catch (SQLException e) {
             return parseError(Integer.valueOf(e.getErrorCode()));
-        }
+    }
         return result>0?OK:NOT_EXISTS;
     }
 
@@ -177,6 +177,7 @@ public class Solution {
 
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
+        int result = 0;
         try {
             List<Object> values = new ArrayList<>();
             values.add(sport.getId());
@@ -184,25 +185,38 @@ public class Solution {
             values.add(sport.getCity());
             values.add(0);
             pstmt = connection.prepareStatement(prepareInsert("sports", "sport_id, sport_name, city, athletes_counter", values));
-            pstmt.executeUpdate();
+            result=pstmt.executeUpdate();
         } catch (SQLException e) {
-            //e.printStackTrace()();
+            return parseError(Integer.valueOf(e.getSQLState()));
         }
-        return OK;
+        return result>0?OK:ERROR;
     }
 
-    public static Sport getSport(Integer sportId) { return Sport.badSport(); }
+    public static Sport getSport(Integer sportId) { Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        Sport result = null;
+        try{
+            pstmt = connection.prepareStatement(prepareSelect("sports", "*", "WHERE sport_id="+ sportId));
+            ResultSet resultSet = pstmt.executeQuery();
+            result =getSportResult(resultSet);
+        }catch (SQLException e){
+            result = Sport.badSport();
+        }
+        return result; }
+
+
 
     public static ReturnValue deleteSport(Sport sport) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
+        int result = 0;
         try {
-            pstmt = connection.prepareStatement(prepareDelete("sports","sport_id="+String.valueOf(sport.getId())));
-            pstmt.executeUpdate();
+            pstmt = connection.prepareStatement(prepareDelete("sports","sport_id="+ sport.getId()));
+            result=pstmt.executeUpdate();
         } catch (SQLException e) {
-            //e.printStackTrace()();
+            return parseError(Integer.valueOf(e.getErrorCode()));
         }
-        return OK;
+        return result>0?OK:NOT_EXISTS;
     }
 
     public static ReturnValue athleteJoinSport(Integer sportId, Integer athleteId) {
@@ -357,6 +371,15 @@ public class Solution {
         a.setName(result.getString("athlete_name"));
         a.setCountry(result.getString("country"));
         a.setIsActive(result.getBoolean("active"));
+        return a;
+    }
+    private static Sport getSportResult(ResultSet resultSet) throws SQLException {
+        resultSet.next();
+        Sport a = new Sport();
+        a.setId(resultSet.getInt("sport_id"));
+        a.setName(resultSet.getString("sport_name"));
+        a.setCity(resultSet.getString("city"));
+        a.setAthletesCount(resultSet.getInt("athletes_counter"));
         return a;
     }
 
