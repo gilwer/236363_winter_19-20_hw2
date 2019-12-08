@@ -67,7 +67,20 @@ public class Solution {
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
-        }}
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
+    }
 
     public static void clearTables() {
         Connection connection = DBConnector.getConnection();
@@ -91,6 +104,18 @@ public class Solution {
             pstmt.executeUpdate();
         } catch (SQLException e) {
             //e.printStackTrace()();
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
         }
     }
 
@@ -117,12 +142,24 @@ public class Solution {
         } catch (SQLException e) {
             //e.printStackTrace()();
         }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
     }
 
     public static ReturnValue addAthlete(Athlete athlete) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try {
             List<Object> values = new ArrayList<>();
             values.add(athlete.getId());
@@ -130,11 +167,23 @@ public class Solution {
             values.add(athlete.getCountry());
             values.add(athlete.getIsActive());
             pstmt = connection.prepareStatement(prepareInsert("athletes", "athlete_id, athlete_name, country, active", values));
-            result=pstmt.executeUpdate();
+            result=pstmt.executeUpdate()>0?OK:ERROR;
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result= parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:ERROR;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+        }
+        return result;
     }
 
     public static Athlete getAthleteProfile(Integer athleteId) {
@@ -148,27 +197,51 @@ public class Solution {
         }catch (SQLException e){
             result = Athlete.badAthlete();
         }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
         return result;
     }
 
     public static ReturnValue deleteAthlete(Athlete athlete) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try {
             pstmt = connection.prepareStatement(prepareDelete("athletes","athlete_id="+String.valueOf(athlete.getId())));
-            result=pstmt.executeUpdate();
+            result=pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result = parseError(Integer.valueOf(e.getSQLState()));
     }
-        return result>0?OK:NOT_EXISTS;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+        }
+        return result;
     }
 
     public static ReturnValue addSport(Sport sport) {
 
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try {
             List<Object> values = new ArrayList<>();
             values.add(sport.getId());
@@ -176,11 +249,23 @@ public class Solution {
             values.add(sport.getCity());
             values.add(0);
             pstmt = connection.prepareStatement(prepareInsert("sports", "sport_id, sport_name, city, athletes_counter", values));
-            result=pstmt.executeUpdate();
+            result=pstmt.executeUpdate()>0?OK:ERROR;
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result= parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:ERROR;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result = ERROR;
+            }
+        }
+        return result;
     }
 
     public static Sport getSport(Integer sportId) { Connection connection = DBConnector.getConnection();
@@ -193,6 +278,18 @@ public class Solution {
         }catch (SQLException e){
             result = Sport.badSport();
         }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+               e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
         return result; }
 
 
@@ -200,26 +297,45 @@ public class Solution {
     public static ReturnValue deleteSport(Sport sport) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result;
         try {
             pstmt = connection.prepareStatement(prepareDelete("sports","sport_id="+ sport.getId()));
-            result=pstmt.executeUpdate();
+            result=pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result= parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:NOT_EXISTS;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+                result = ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+                result = ERROR;
+            }
+        }
+        return result;
     }
 
     public static ReturnValue athleteJoinSport(Integer sportId, Integer athleteId) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
+        ReturnValue result = OK;
         try{
             List<Object> values = new ArrayList<>();
             values.add(athleteId);
             values.add(sportId);
             pstmt = connection.prepareStatement(prepareSelect("athletes", "active", "WHERE athlete_id="+ athleteId));
             ResultSet resultSet =pstmt.executeQuery();
-            if(!resultSet.next()) return NOT_EXISTS;
+            if(!resultSet.next()) {
+                pstmt.close();
+                connection.close();
+                return NOT_EXISTS;
+            }
             if(resultSet.getBoolean("active")){
                 values.add(0);
             } else {
@@ -229,47 +345,93 @@ public class Solution {
             pstmt.executeUpdate();
         }catch (SQLException e){
             return parseError(Integer.valueOf(e.getSQLState()));
+        }finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+               result=ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
         }
-        return OK;
+        return  result;
     }
 
     public static ReturnValue athleteLeftSport(Integer sportId, Integer athleteId) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try{
             pstmt = connection.prepareStatement(prepareDelete("participators_observers","sport_id="+sportId+ " AND athlete_id=" + athleteId ));
-            result=pstmt.executeUpdate();
+            result=pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         }catch (SQLException e){
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result= parseError(Integer.valueOf(e.getSQLState()));
+        }finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
         }
-        return result>0?OK:NOT_EXISTS;
+        return result;
     }
 
     public static ReturnValue confirmStanding(Integer sportId, Integer athleteId, Integer place) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try{
             pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+place, "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment = 0" ));
-            result = pstmt.executeUpdate();
+            result = pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         }catch (SQLException e){
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result = parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:NOT_EXISTS;
+        finally {
+        try {
+            pstmt.close();
+        } catch (SQLException e) {
+            result=ERROR;
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            result=ERROR;
+        }
+    }
+        return result;
     }
 
     public static ReturnValue athleteDisqualified(Integer sportId, Integer athleteId) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try{
             pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+"NULL", "sport_id="+sportId+ " AND athlete_id=" + athleteId ));
-           result = pstmt.executeUpdate();
+           result = pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         }catch (SQLException e){
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result = parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:NOT_EXISTS;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
+    }
+        return result;
     }
 
     public static ReturnValue makeFriends(Integer athleteId1, Integer athleteId2) {
@@ -283,15 +445,27 @@ public class Solution {
     public static ReturnValue changePayment(Integer athleteId, Integer sportId, Integer payment) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-        int result = 0;
+        ReturnValue result = OK;
         try{
             pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "payment="+payment+ ", sport_id="+sportId+", athlete_id=" + athleteId,
                     "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment <> 0" ));
-            result = pstmt.executeUpdate();
+            result = pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         }catch (SQLException e){
-            return parseError(Integer.valueOf(e.getSQLState()));
+            result= parseError(Integer.valueOf(e.getSQLState()));
         }
-        return result>0?OK:NOT_EXISTS;
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                result=ERROR;
+            }
+        }
+        return result;
     }
 
     public static Boolean isAthletePopular(Integer athleteId) {
@@ -311,6 +485,18 @@ public class Solution {
         }catch (SQLException e){
             result = 0;
         }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
         return result;
     }
 
@@ -326,6 +512,18 @@ public class Solution {
             result = resultSet.getInt("SUM");
         }catch (SQLException e){
             result = 0;
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
         }
         return result;
     }
