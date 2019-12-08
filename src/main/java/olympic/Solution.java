@@ -45,25 +45,24 @@ public class Solution {
             statements.add("CREATE TABLE friends");
             statements.add("id_1 integer NOT NULL");
             statements.add("id_2 integer NOT NULL");
+            statements.add("PRIMARY KEY (id_1, id_2)");
             statements.add("CONSTRAINT pos_id1 CHECK (id_1 > 0)");
             statements.add("CONSTRAINT pos_id2 CHECK (id_2 > 0)");
             statements.add("CONSTRAINT not_equal CHECK (id_1 <> id_2)");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.execute();
             statements.clear();
-            statements.add("CREATE TABLE payments");
+            statements.add("CREATE TABLE participators_observers");
             statements.add("athlete_id integer NOT NULL");
             statements.add("sport_id integer NOT NULL");
-            statements.add("payment integer NOT NULL");
-            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
-            pstmt.execute();
-            statements.clear();
-            statements.add("CREATE TABLE participators");
-            statements.add("athlete_id integer NOT NULL");
-            statements.add("sport_id integer NOT NULL");
-            statements.add("place integer NOT NULL");
-            statements.add("CONSTRAINT pos_id1 CHECK (place >= 0)");
+            statements.add("place integer");
+            statements.add("payment integer");
+            statements.add("CONSTRAINT pos_id1 CHECK (place > 0)");
             statements.add("CONSTRAINT pos_id2 CHECK (place < 4)");
+            statements.add("CONSTRAINT pos_payment CHECK (payment >= 0)");
+            statements.add("FOREIGN KEY (athlete_id) REFERENCES athletes(athlete_id) on delete cascade on update cascade");
+            statements.add("FOREIGN KEY (sport_id) REFERENCES sports(sport_id) on delete cascade on update cascade");
+            statements.add("PRIMARY KEY (athlete_id, sport_id)");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.execute();
         } catch (SQLException e) {
@@ -75,23 +74,19 @@ public class Solution {
         PreparedStatement pstmt = null;
         try {
             List<String> statements = new ArrayList<>();
-            statements.add("DELETE * FROM athletes");
+            statements.add("DELETE FROM athletes");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
-            statements.add("DELETE * FROM sports");
+            statements.add("DELETE FROM sports");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
-            statements.add("DELETE * FROM friends");
+            statements.add("DELETE FROM friends");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
-            statements.add("DELETE * FROM payments");
-            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
-            pstmt.executeUpdate();
-            statements.clear();
-            statements.add("DELETE * FROM participators");
+            statements.add("DELETE FROM participators_observers");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
         } catch (SQLException e) {
@@ -104,11 +99,7 @@ public class Solution {
         PreparedStatement pstmt = null;
         try {
             List<String> statements = new ArrayList<>();
-            statements.add("DROP TABLE athletes");
-            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
-            pstmt.executeUpdate();
-            statements.clear();
-            statements.add("DROP TABLE sports");
+            statements.add("DROP TABLE participators_observers");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
@@ -116,11 +107,11 @@ public class Solution {
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
-            statements.add("DROP TABLE payments");
+            statements.add("DROP TABLE athletes");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
             statements.clear();
-            statements.add("DROP TABLE participators");
+            statements.add("DROP TABLE sports");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
         } catch (SQLException e) {
@@ -168,7 +159,7 @@ public class Solution {
             pstmt = connection.prepareStatement(prepareDelete("athletes","athlete_id="+String.valueOf(athlete.getId())));
             result=pstmt.executeUpdate();
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getErrorCode()));
+            return parseError(Integer.valueOf(e.getSQLState()));
     }
         return result>0?OK:NOT_EXISTS;
     }
@@ -214,7 +205,7 @@ public class Solution {
             pstmt = connection.prepareStatement(prepareDelete("sports","sport_id="+ sport.getId()));
             result=pstmt.executeUpdate();
         } catch (SQLException e) {
-            return parseError(Integer.valueOf(e.getErrorCode()));
+            return parseError(Integer.valueOf(e.getSQLState()));
         }
         return result>0?OK:NOT_EXISTS;
     }
@@ -226,52 +217,59 @@ public class Solution {
             List<Object> values = new ArrayList<>();
             values.add(athleteId);
             values.add(sportId);
-            pstmt = connection.prepareStatement(prepareSelect("athletes", "active", "athlete_id="+String.valueOf(athleteId)));
-            if(queryBoolean(pstmt)){
+            pstmt = connection.prepareStatement(prepareSelect("athletes", "active", "WHERE athlete_id="+ athleteId));
+            ResultSet resultSet =pstmt.executeQuery();
+            if(!resultSet.next()) return NOT_EXISTS;
+            if(resultSet.getBoolean("active")){
                 values.add(0);
-                pstmt = connection.prepareStatement(prepareInsert("participators", "athlete_id,sport_id,place", values));
             } else {
                 values.add(100);
-                pstmt = connection.prepareStatement(prepareInsert("payments", "athlete_id,sport_id,payment", values));
             }
+            pstmt = connection.prepareStatement(prepareInsert("participators_observers", "athlete_id,sport_id,payment", values));
             pstmt.executeUpdate();
         }catch (SQLException e){
-
+            return parseError(Integer.valueOf(e.getSQLState()));
         }
-
         return OK;
     }
 
     public static ReturnValue athleteLeftSport(Integer sportId, Integer athleteId) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
+        int result = 0;
         try{
-            pstmt = connection.prepareStatement(prepareSelect("athletes", "active", "athlete_id="+ athleteId));
-            String table=queryBoolean(pstmt)?"participators":"payments";
-            pstmt = connection.prepareStatement(prepareDelete(table,"sport_id="+sportId+ " AND athlete_id=" + athleteId ));
-            pstmt.executeUpdate();
+            pstmt = connection.prepareStatement(prepareDelete("participators_observers","sport_id="+sportId+ " AND athlete_id=" + athleteId ));
+            result=pstmt.executeUpdate();
         }catch (SQLException e){
-
+            return parseError(Integer.valueOf(e.getSQLState()));
         }
-
-        return OK;
+        return result>0?OK:NOT_EXISTS;
     }
 
     public static ReturnValue confirmStanding(Integer sportId, Integer athleteId, Integer place) {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
+        int result = 0;
         try{
-            pstmt = connection.prepareStatement(prepareUpdate("participators", "place="+place, "sport_id="+sportId+ " AND athlete_id=" + athleteId ));
-            pstmt.executeUpdate();
+            pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+place, "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment = 0" ));
+            result = pstmt.executeUpdate();
         }catch (SQLException e){
-
+            return parseError(Integer.valueOf(e.getSQLState()));
         }
-
-        return OK;
+        return result>0?OK:NOT_EXISTS;
     }
 
     public static ReturnValue athleteDisqualified(Integer sportId, Integer athleteId) {
-        return OK;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        int result = 0;
+        try{
+            pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+"NULL", "sport_id="+sportId+ " AND athlete_id=" + athleteId ));
+           result = pstmt.executeUpdate();
+        }catch (SQLException e){
+            return parseError(Integer.valueOf(e.getSQLState()));
+        }
+        return result>0?OK:NOT_EXISTS;
     }
 
     public static ReturnValue makeFriends(Integer athleteId1, Integer athleteId2) {
@@ -283,7 +281,17 @@ public class Solution {
     }
 
     public static ReturnValue changePayment(Integer athleteId, Integer sportId, Integer payment) {
-        return OK;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        int result = 0;
+        try{
+            pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "payment="+payment+ ", sport_id="+sportId+", athlete_id=" + athleteId,
+                    "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment <> 0" ));
+            result = pstmt.executeUpdate();
+        }catch (SQLException e){
+            return parseError(Integer.valueOf(e.getSQLState()));
+        }
+        return result>0?OK:NOT_EXISTS;
     }
 
     public static Boolean isAthletePopular(Integer athleteId) {
@@ -352,9 +360,6 @@ public class Solution {
         return "DELETE FROM "+ table +"\nWHERE " + where;
     }
 
-    private static Boolean queryBoolean(PreparedStatement pstmt) throws SQLException {
-        return Boolean.valueOf(DBConnector.getSchema(pstmt.executeQuery()).get(0).getValue());
-    }
 
     private static String queryString(PreparedStatement pstmt) throws SQLException {
         return DBConnector.getSchema(pstmt.executeQuery()).get(0).getValue();
@@ -393,7 +398,7 @@ public class Solution {
     private static ReturnValue parseError(int c){
         if(PostgreSQLErrorCodes.UNIQUE_VIOLATION.getValue()==c) return ALREADY_EXISTS;
         if(PostgreSQLErrorCodes.NOT_NULL_VIOLATION.getValue()==c) return BAD_PARAMS;
-        if(PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue()==c) return BAD_PARAMS;
+        if(PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue()==c) return NOT_EXISTS;
         if(PostgreSQLErrorCodes.CHECK_VIOLATION.getValue()==c) return BAD_PARAMS;
         return ERROR;
     }
