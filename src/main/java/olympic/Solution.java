@@ -299,11 +299,35 @@ public class Solution {
     }
 
     public static Integer getTotalNumberOfMedalsFromCountry(String country) {
-        return 0;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        int result = 0;
+        try{
+            pstmt = connection.prepareStatement(prepareSelect("participators_observers JOIN athletes", "COUNT(place)",
+                    "ON(participators_observers.athlete_id=athletes.athlete_id AND country="+convertParam(country)+")"));
+            ResultSet resultSet = pstmt.executeQuery();
+            resultSet.next();
+            result = resultSet.getInt("COUNT");
+        }catch (SQLException e){
+            result = 0;
+        }
+        return result;
     }
 
     public static Integer getIncomeFromSport(Integer sportId) {
-        return 0;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        int result = 0;
+        try{
+            pstmt = connection.prepareStatement(prepareSelect("participators_observers", "SUM(payment)",
+                    "WHERE sport_id="+ sportId));
+            ResultSet resultSet = pstmt.executeQuery();
+            resultSet.next();
+            result = resultSet.getInt("SUM");
+        }catch (SQLException e){
+            result = 0;
+        }
+        return result;
     }
 
     public static String getBestCountry() {
@@ -365,9 +389,6 @@ public class Solution {
         return DBConnector.getSchema(pstmt.executeQuery()).get(0).getValue();
     }
 
-    private static Integer queryInteger(PreparedStatement pstmt) throws SQLException {
-        return Integer.valueOf(DBConnector.getSchema(pstmt.executeQuery()).get(0).getValue());
-    }
 
     private static Athlete getAthlete(ResultSet result) throws SQLException {
         result.next();
