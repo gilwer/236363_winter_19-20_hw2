@@ -1,5 +1,6 @@
 package olympic;
 
+import javafx.util.Pair;
 import olympic.business.Athlete;
 import olympic.business.ReturnValue;
 import olympic.business.Sport;
@@ -11,10 +12,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static olympic.business.ReturnValue.*;
+import static olympic.data.DBConnector.getSchema;
 
 public class Solution {
     public static void createTables() {
@@ -65,6 +68,9 @@ public class Solution {
             statements.add("PRIMARY KEY (athlete_id, sport_id)");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.execute();
+
+            createViews(pstmt,connection);
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -81,6 +87,37 @@ public class Solution {
             }
         }
     }
+
+    private static void createViews(PreparedStatement pstmt, Connection connection) throws SQLException {
+        pstmt = connection.prepareStatement("CREATE VIEW first_place AS\n" +
+                "SELECT athlete_id, COUNT(place)\n" +
+                "FROM participators_observers\n" +
+                "WHERE place=3\n" +
+                "GROUP BY athlete_id");
+        pstmt.execute();
+
+        pstmt = connection.prepareStatement("CREATE VIEW second_place AS\n" +
+                "SELECT athlete_id, COUNT(place)\n" +
+                "FROM participators_observers\n" +
+                "WHERE place=2\n" +
+                "GROUP BY athlete_id");
+        pstmt.execute();
+
+        pstmt = connection.prepareStatement("CREATE VIEW third_place AS\n" +
+                "SELECT athlete_id, COUNT(place)\n" +
+                "FROM participators_observers\n" +
+                "WHERE place=1\n" +
+                "GROUP BY athlete_id");
+        pstmt.execute();
+
+        pstmt = connection.prepareStatement("CREATE VIEW sum_place AS\n" +
+                "SELECT athlete_id, SUM(place)\n" +
+                "FROM participators_observers\n" +
+                "WHERE payment=0\n" +
+                "GROUP BY athlete_id");
+        pstmt.execute();
+    }
+
 
     public static void clearTables() {
         Connection connection = DBConnector.getConnection();
@@ -124,6 +161,22 @@ public class Solution {
         PreparedStatement pstmt = null;
         try {
             List<String> statements = new ArrayList<>();
+            statements.add("DROP VIEW sum_place");
+            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
+            pstmt.executeUpdate();
+            statements.clear();
+            statements.add("DROP VIEW first_place");
+            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
+            pstmt.executeUpdate();
+            statements.clear();
+            statements.add("DROP VIEW second_place");
+            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
+            pstmt.executeUpdate();
+            statements.clear();
+            statements.add("DROP VIEW third_place");
+            pstmt = connection.prepareStatement(prepareCreateStatement(statements));
+            pstmt.executeUpdate();
+            statements.clear();
             statements.add("DROP TABLE participators_observers");
             pstmt = connection.prepareStatement(prepareCreateStatement(statements));
             pstmt.executeUpdate();
@@ -389,7 +442,7 @@ public class Solution {
         PreparedStatement pstmt = null;
         ReturnValue result = OK;
         try{
-            pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+place, "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment = 0" ));
+            pstmt = connection.prepareStatement(prepareUpdate("participators_observers", "place="+(4-place), "sport_id="+sportId+ " AND athlete_id=" + athleteId + " AND payment = 0" ));
             result = pstmt.executeUpdate()>0?OK:NOT_EXISTS;
         }catch (SQLException e){
             result = parseError(Integer.valueOf(e.getSQLState()));
@@ -537,12 +590,64 @@ public class Solution {
     }
 
     public static ArrayList<Integer> getAthleteMedals(Integer athleteId) {
-        return new ArrayList<>();
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        ArrayList<Integer> result = null;
+        try{
+            pstmt = connection.prepareStatement(prepareSelect("first_place FULL OUTER JOIN second_place ON(first_place.athlete_id=second_place.athlete_id) FULL OUTER JOIN third_place ON(third_place.athlete_id=second_place.athlete_id)", "first_place.count, second_place.count, third_place.count",
+                    "WHERE first_place.athlete_id="+ convertParam(athleteId)));
+            ResultSet resultSet = pstmt.executeQuery();
+            result = getResults(resultSet);
+            if(result.size()==0){
+                result = new ArrayList<>(Arrays.asList(0,0,0));
+            }
+
+        }catch (SQLException e){
+            result = new ArrayList<>(Arrays.asList(0,0,0));
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
+        return result;
     }
 
     public static ArrayList<Integer> getMostRatedAthletes() {
-        return new ArrayList<>();
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        ArrayList<Integer> result = null;
+        try{
+            pstmt = connection.prepareStatement(prepareSelect("sum_place", "athlete_id","ORDER BY sum DESC NULLS LAST"));
+            ResultSet resultSet = pstmt.executeQuery();
+            result = getResults(resultSet,10);
+
+        }catch (SQLException e){
+            result = new ArrayList<>();
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //e.printStackTrace()();
+            }
+        }
+        return result;
     }
+
+
 
     public static ArrayList<Integer> getCloseAthletes(Integer athleteId) {
         return new ArrayList<>();
@@ -584,7 +689,7 @@ public class Solution {
 
 
     private static String queryString(PreparedStatement pstmt) throws SQLException {
-        return DBConnector.getSchema(pstmt.executeQuery()).get(0).getValue();
+        return getSchema(pstmt.executeQuery()).get(0).getValue();
     }
 
 
@@ -620,6 +725,25 @@ public class Solution {
         if(PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue()==c) return NOT_EXISTS;
         if(PostgreSQLErrorCodes.CHECK_VIOLATION.getValue()==c) return BAD_PARAMS;
         return ERROR;
+    }
+
+    private static ArrayList<Integer> getResults(ResultSet result, Integer limit) throws SQLException {
+        ArrayList<Integer> resultLst = new ArrayList<>();
+        ArrayList<Pair<String, String>> schema = getSchema(result);
+        while (result.next()){
+            for (int i =1; i <= schema.size(); i++)
+            {
+                resultLst.add(result.getInt(i));
+                if(resultLst.size()==limit){
+                    return resultLst;
+                }
+            }
+        }
+        return resultLst;
+    }
+
+    private static ArrayList<Integer> getResults(ResultSet result) throws SQLException {
+        return getResults(result,null);
     }
 
 
